@@ -353,6 +353,155 @@ export default class BrowserUtil {
         }
     }
 
+    /**
+     * Specialized function to handle the Bing search overlay that blocks interactions
+     * This targets the specific overlay element that appears on search pages
+     * @param page The Playwright page object
+     * @returns boolean True if overlay was removed, false otherwise
+     */
+    async handleSearchOverlay(page: Page): Promise<boolean> {
+        try {
+            // First detect if we're on a search page and if the overlay is present
+            const overlayExists = await page.evaluate(() => {
+                // Try to identify the overlay element that's blocking interactions
+                const overlays = [
+                    // bnp overlay wrapper - primary target based on error logs
+                    document.querySelector('.bnp_overlay_wrapper'),
+                    document.querySelector('[id^="bnp.nid"]'),
+                    document.querySelector('[data-viewname="OverlayBanner_NoTitleRejectBtn"]'),
+                    // Other potential overlay selectors
+                    document.querySelector('#cookie-banner'),
+                    document.querySelector('.cookie_prompt'),
+                    document.querySelector('[aria-label*="cookie"]')
+                ];
+                
+                return overlays.some(el => el !== null);
+            });
+            
+            if (!overlayExists) {
+                return false;
+            }
+            
+            this.bot.log(this.bot.isMobile, 'SEARCH-OVERLAY', 'Detected search page overlay, attempting to remove it');
+            
+            // First try: Click the reject button directly if it exists
+            try {
+                // Try various selectors for the reject button within the overlay
+                const rejectButtonSelectors = [
+                    '.bnp_btn_reject',
+                    '#bnp_btn_reject',
+                    '.bnp_hfly_cta2',
+                    '#bnp_hfly_cta2',
+                    '[aria-label*="Reject"]',
+                    '[aria-label*="Refuse"]',
+                    '[aria-label*="Decline"]',
+                    'button:has-text("Refuser")',
+                    'button:has-text("Reject")',
+                    'button:has-text("Decline")'
+                ];
+                
+                for (const selector of rejectButtonSelectors) {
+                    const buttonExists = await page.$(selector);
+                    if (buttonExists) {
+                        await page.click(selector, { force: true, timeout: 2000 }).catch(() => {});
+                        this.bot.log(this.bot.isMobile, 'SEARCH-OVERLAY', `Clicked reject button using selector: ${selector}`);
+                        await this.bot.utils.wait(500);
+                        return true;
+                    }
+                }
+            } catch (clickError) {
+                this.bot.log(this.bot.isMobile, 'SEARCH-OVERLAY', `Direct click approach failed: ${clickError}`, 'warn');
+            }
+            
+            // Second try: JavaScript approach to remove the overlay
+            const removed = await page.evaluate(() => {
+                try {
+                    // Target the specific overlay elements
+                    const overlaySelectors = [
+                        '.bnp_overlay_wrapper',
+                        '[id^="bnp.nid"]',
+                        '[data-viewname="OverlayBanner_NoTitleRejectBtn"]',
+                        '#cookie-banner',
+                        '.cookie_prompt',
+                        '[aria-label*="cookie"]'
+                    ];
+                    
+                    let removed = false;
+                    
+                    // Try to find and remove each possible overlay
+                    for (const selector of overlaySelectors) {
+                        const elements = document.querySelectorAll(selector);
+                        if (elements.length > 0) {
+                            elements.forEach(el => {
+                                if (el instanceof HTMLElement) {
+                                    el.style.display = 'none';
+                                    el.style.visibility = 'hidden';
+                                    el.style.opacity = '0';
+                                    el.style.pointerEvents = 'none';
+                                    el.setAttribute('aria-hidden', 'true');
+                                    
+                                    // If element has a parent, try to remove it as well
+                                    if (el.parentElement) {
+                                        el.parentElement.removeChild(el);
+                                    }
+                                    
+                                    removed = true;
+                                }
+                            });
+                        }
+                    }
+                    
+                    // Set cookies to prevent the banner from appearing again
+                    const cookieNames = [
+                        'SRCHHPGUSR',
+                        'SRCHUID',
+                        'BCP',
+                        '_EDGE_V',
+                        'MUID',
+                        'MC1',
+                        'MSCC'
+                    ];
+                    
+                    for (const name of cookieNames) {
+                        document.cookie = `${name}=1; domain=.bing.com; path=/; max-age=31536000; SameSite=None; Secure`;
+                    }
+                    
+                    // Specifically target cookie preferences
+                    localStorage.setItem('SRCHHPGUSR', 'SRCHLANG=en&BRW=XW&BRH=S&CW=1420&CH=333&SCW=1420&SCH=333&DPR=1.0&UTC=60&DM=0&WTS=63848700397&HV=1719081120&PRVCW=1420&PRVCH=333&THEME=1');
+                    localStorage.setItem('_EDGE_V', '1');
+                    localStorage.setItem('MSCC', 'cid=necessary');
+                    
+                    return removed;
+                } catch (e) {
+                    return false;
+                }
+            });
+            
+            if (removed) {
+                this.bot.log(this.bot.isMobile, 'SEARCH-OVERLAY', 'Successfully removed search overlay via JavaScript');
+                return true;
+            }
+            
+            // Third try: Force evaluation of JavaScript to bypass the overlay
+            await page.evaluate(() => {
+                // Create a new mousedown event that will bypass the overlay
+                const searchInput = document.querySelector('#sb_form_q');
+                if (searchInput instanceof HTMLElement) {
+                    // Focus and click using JavaScript directly
+                    searchInput.focus();
+                    searchInput.click();
+                }
+            });
+            
+            this.bot.log(this.bot.isMobile, 'SEARCH-OVERLAY', 'Attempted JavaScript focus/click as fallback');
+            
+            return false;
+        } catch (error) {
+            this.bot.log(this.bot.isMobile, 'SEARCH-OVERLAY', `Error handling search overlay: ${error}`, 'error');
+            return false;
+        }
+    }
+
     async getLatestTab(page: Page): Promise<Page> {
         try {
             await this.bot.utils.wait(1000)

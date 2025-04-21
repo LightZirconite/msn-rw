@@ -1,32 +1,85 @@
-# Microsoft Rewards Script - Fixes
+# Microsoft Rewards Script - Enhanced
 
-This document details the fixes applied to [TheNetsky's Microsoft Rewards Script](https://github.com/TheNetsky/Microsoft-Rewards-Script) to resolve issues with Microsoft's new authentication interface and improve cookie handling.
+This project is an enhanced version of [TheNetsky's Microsoft Rewards Script](https://github.com/TheNetsky/Microsoft-Rewards-Script) that automates the collection of Microsoft Rewards points.
 
-## Overview
+## Overview of Improvements
 
-The original script stopped working correctly due to Microsoft's authentication interface changes, which resulted in:
+The original script encountered issues following changes to Microsoft's authentication interface and new cookie banners. These modifications caused:
 1. Blank pages during login
-2. Failure to enter email addresses in desktop mode
+2. Failed email address entry in desktop mode
+3. Multiple browser windows opening simultaneously
+4. Cookie banners blocking interactions
 
-These fixes address these specific issues while maintaining compatibility with the original codebase.
+These fixes address these issues while maintaining compatibility with the original codebase.
 
-## Fixed Files
+## Features
 
-### 1. Browser Configuration Fix (`src/browser/Browser.ts`)
+- **Full Automation**: Automatically collects Microsoft Rewards points
+- **Mobile and Desktop Compatible**: Emulates both device types to maximize points
+- **Smart Cookie Management**: Automatically rejects consent banners
+- **Multi-account**: Management of multiple Microsoft Rewards accounts
+- **Launcher Scripts**: Easy startup with `.bat` (Windows) and `.sh` (Linux/Mac) scripts
 
-**Issue:** The script was opening multiple browser windows and failing to properly configure viewports.
+## Installation
 
-**Fix:** Corrected the viewport configuration in the `createBrowser` method:
+1. Clone this repository:
+   ```
+   git clone https://github.com/your-name/Microsoft-Rewards-Script.git
+   cd Microsoft-Rewards-Script
+   ```
+
+2. Install dependencies:
+   ```
+   npm install
+   ```
+
+3. Configure your accounts in the `src/accounts.json` file:
+   ```json
+   [
+     {
+       "username": "your-email@example.com",
+       "password": "your-password",
+       "proxy": {
+         "url": "",
+         "port": "",
+         "username": "",
+         "password": ""
+       }
+     }
+   ]
+   ```
+
+4. Make the shell script executable (Linux/Mac only):
+   ```
+   chmod +x start-rewards.sh
+   ```
+
+## Usage
+
+### Quick Launch
+- **Windows**: Double-click on `start-rewards.bat`
+- **Linux/Mac**: Run `./start-rewards.sh`
+
+### Command Line
+```
+npm run pre-build  # Install dependencies and prepare
+npm run build      # Build the project
+npm run start      # Launch the script
+```
+
+### Development Mode
+```
+npm run ts-start   # Direct execution via ts-node
+npm run dev        # Execution in development mode
+```
+
+## Major Fixes
+
+### 1. Browser Configuration (`src/browser/Browser.ts`)
+
+Viewport parameter correction to prevent multiple window openings:
 
 ```typescript
-// BEFORE:
-const context = await newInjectedContext(browser as any, { 
-    fingerprint: fingerprint,
-    // Additional settings for the new interface
-    viewport: this.bot.isMobile ? { width: 390, height: 844 } : { width: 1280, height: 720 }
-})
-
-// AFTER:
 const context = await newInjectedContext(browser as any, { 
     fingerprint: fingerprint,
     newContextOptions: {
@@ -35,172 +88,52 @@ const context = await newInjectedContext(browser as any, {
 })
 ```
 
-The fix moves the viewport settings into the `newContextOptions` object, as required by the `fingerprint-injector` library.
-
 ### 2. Email Input Enhancement (`src/functions/Login.ts`)
 
-**Issue:** The script couldn't enter email addresses in the new Microsoft interface.
-
-**Fix:** Enhanced the `enterEmail` method to handle Microsoft's new authentication interface:
-
-```typescript
-private async enterEmail(page: Page, email: string) {
-    try {
-        // Check if email is already prefilled by Microsoft
-        const emailPrefilled = await page.waitForSelector('#userDisplayName', { timeout: 2_000 }).catch(() => null)
-        if (emailPrefilled) {
-            this.bot.log(this.bot.isMobile, 'LOGIN', 'Email already prefilled by Microsoft')
-            await page.click('#idSIButton9').catch(() => {})
-            return
-        }
-
-        // Wait for the input field to be ready - longer timeout for the new interface
-        await page.waitForSelector('#i0116', { state: 'visible', timeout: 5000 })
-        
-        // Clear any existing value first
-        await page.click('#i0116')
-        await page.fill('#i0116', '')
-        await this.bot.utils.wait(500)
-        
-        // Type email character by character to better handle the new interface
-        for (const char of email) {
-            await page.type('#i0116', char, { delay: 50 })
-            await this.bot.utils.wait(30)
-        }
-        
-        await this.bot.utils.wait(1000)
-        
-        // Click the Next button
-        const nextButton = await page.waitForSelector('#idSIButton9', { state: 'visible', timeout: 5000 })
-        if (nextButton) {
-            await nextButton.click()
-            await this.bot.utils.wait(2000)
-            this.bot.log(this.bot.isMobile, 'LOGIN', 'Email entered successfully')
-        } else {
-            this.bot.log(this.bot.isMobile, 'LOGIN', 'Next button not found after email entry')
-        }
-    } catch (error) {
-        // Fallback to alternative method if primary approach fails
-        this.bot.log(this.bot.isMobile, 'LOGIN', `Email entry failed: ${error}`, 'warn')
-        try {
-            await page.fill('input[type="email"]', email)
-            await this.bot.utils.wait(1000)
-            await page.click('input[type="submit"]')
-            this.bot.log(this.bot.isMobile, 'LOGIN', 'Email entered using alternative method')
-        } catch (alternativeError) {
-            this.bot.log(this.bot.isMobile, 'LOGIN', `Alternative email entry failed: ${alternativeError}`, 'error')
-        }
-    }
-}
-```
-
-The key improvements include:
+Improved input for Microsoft's authentication interface with:
 - Character-by-character typing with delays
-- Increased timeout values for selectors
+- Increased timeout values
 - Better error handling
-- Alternative selector method as fallback
+- Alternative methods in case of failure
 
-### 3. Enhanced Cookie Handling (`src/browser/BrowserUtil.ts`)
+### 3. Advanced Cookie Management (`src/browser/BrowserUtil.ts`)
 
-**Issue:** Cookie pop-ups would interfere with the automation process.
+Added automatic cookie rejection features with:
+- Detection of Bing/Microsoft-specific banners
+- Multilingual support (French, English, etc.)
+- Cascading three-approach system (direct click, DOM manipulation, JavaScript interaction)
+- Support for banners in iframes
 
-**Fix:** Enhanced the `tryDismissAllMessages` method to prioritize rejecting cookie pop-ups:
+### 4. Search Overlay Management
 
-```typescript
-async tryDismissAllMessages(page: Page): Promise<boolean> {
-    const buttons = [
-        // Original UI interaction buttons
-        // ...existing code...
-        
-        // Added numerous cookie rejection selectors
-        { selector: '//button[contains(text(), "Reject")]', label: 'Generic Reject Button' },
-        { selector: '//button[contains(text(), "Decline")]', label: 'Generic Decline Button' },
-        // ...additional cookie rejection selectors...
-        
-        // Microsoft specific reject buttons
-        { selector: '#bnp_btn_reject', label: 'Bing Cookie Reject Button' },
-        { selector: '#cookie-banner-reject', label: 'MS Cookie Banner Reject' },
-        { selector: '//button[contains(@aria-label, "Reject")]', label: 'MS Aria Reject Button' },
-        
-        // Fallback to existing cookie buttons (if rejection fails)
-        // ...existing cookie acceptance selectors...
-    ]
+Solution for banners that block search interactions:
+- Dedicated `handleSearchOverlay()` function
+- Targets the `.bnp_overlay_wrapper` element blocking interactions
+- Multiple workaround methods if direct click fails
 
-    // Added modal/dialog cookie notice handling
-    try {
-        const cookieDialog = page.locator('dialog:visible, div[role="dialog"]:visible, div.cookie-banner:visible, div[id*="cookie"]:visible');
-        // ...cookie dialog handling logic...
-    } catch (error) {
-        // Continue if modal handling fails
-    }
+## Advanced Configuration
 
-    // Original button handling logic
-    const dismissTasks = buttons.map(async (button) => {
-        // ...existing code...
-    })
+You can modify the `src/config.json` file to customize:
 
-    const results = await Promise.allSettled(dismissTasks)
-    
-    // Added iframe cookie banner detection
-    try {
-        const frames = page.frames();
-        // ...iframe cookie handling logic...
-    } catch (error) {
-        // Continue if iframe handling fails
-    }
-    
-    return results.some(result => result.status === 'fulfilled' && result.value === true)
-}
-```
-
-The improvements include:
-- Prioritization of cookie rejection buttons
-- Special handling for modal/dialog cookie notices
-- Detection of cookie banners in iframes
-- More comprehensive selectors for various cookie consent patterns
-
-## Convenience Scripts
-
-Added simple launcher scripts to make running the bot easier:
-
-1. `start-rewards.bat` - Windows launcher
-2. `start-rewards.sh` - Linux/Mac launcher
-
-These scripts check for prerequisites, build the project if needed, and launch the Microsoft Rewards Script.
-
-## How to Apply These Fixes
-
-1. Clone the original repository: 
-   ```
-   git clone https://github.com/TheNetsky/Microsoft-Rewards-Script.git
-   ```
-
-2. Replace the following files with the fixed versions:
-   - `src/browser/Browser.ts`
-   - `src/functions/Login.ts`
-   - `src/browser/BrowserUtil.ts`
-
-3. Add the convenience scripts:
-   - `start-rewards.bat`
-   - `start-rewards.sh`
-
-4. Make the shell script executable (Linux/Mac only):
-   ```
-   chmod +x start-rewards.sh
-   ```
-
-5. Build and start the script:
-   - Windows: Double-click `start-rewards.bat`
-   - Linux/Mac: Run `./start-rewards.sh`
-
-## Important Notes
-
-- These are unofficial fixes and not part of the original repository.
-- The official repository remains at: https://github.com/TheNetsky/Microsoft-Rewards-Script
-- These fixes were created to address specific issues with Microsoft's new authentication interface as of April 2025.
+- Search settings
+- Delays between actions
+- Proxy configuration
+- Webhook options for notifications
+- And more!
 
 ## Compatibility
 
 - Tested on Windows 10/11
-- Works with both mobile and desktop emulation modes
-- Compatible with the original script's configuration system
+- Works with Chrome/Chromium
+- Compatible with both emulation modes (mobile and desktop)
+- Compatible with the original script's configuration structure
+
+## Important Notes
+
+- This script is an improved and unofficial version
+- The official repository remains: https://github.com/TheNetsky/Microsoft-Rewards-Script
+- These fixes were created to address specific issues with Microsoft's authentication interface as of April 2025
+
+## License
+
+This project is under the ISC license - see the original repository for more details

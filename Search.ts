@@ -150,6 +150,9 @@ export class Search extends Workers {
 
                 // Handle any cookie pop-ups or other prompts before searching
                 await this.bot.browser.utils.rejectCookies(searchPage)
+                
+                // Handle the search overlay specifically
+                await this.bot.browser.utils.handleSearchOverlay(searchPage)
 
                 // Go to top of the page
                 await searchPage.evaluate(() => {
@@ -159,8 +162,35 @@ export class Search extends Workers {
                 await this.bot.utils.wait(500)
 
                 const searchBar = '#sb_form_q'
+                
+                // Wait for the search bar, and try multiple approaches if needed
                 await searchPage.waitForSelector(searchBar, { state: 'visible', timeout: 10_000 })
-                await searchPage.click(searchBar) // Focus on the textarea
+                
+                // First try: Check if overlay is blocking and handle it
+                await this.bot.browser.utils.handleSearchOverlay(searchPage)
+                
+                try {
+                    // Standard approach - normal click
+                    await searchPage.click(searchBar, { timeout: 3000 })
+                } catch (clickError) {
+                    // If standard click fails, try JavaScript approach
+                    this.bot.log(this.bot.isMobile, 'SEARCH-BING', 'Standard click failed, trying JavaScript approach', 'warn')
+                    
+                    await searchPage.evaluate(() => {
+                        const input = document.querySelector('#sb_form_q') as HTMLTextAreaElement;
+                        if (input) {
+                            input.focus();
+                            // Create and dispatch a click event
+                            const clickEvent = new MouseEvent('click', {
+                                bubbles: true,
+                                cancelable: true,
+                                view: window
+                            });
+                            input.dispatchEvent(clickEvent);
+                        }
+                    });
+                }
+                
                 await this.bot.utils.wait(500)
                 await searchPage.keyboard.down(platformControlKey)
                 await searchPage.keyboard.press('A')
@@ -177,6 +207,9 @@ export class Search extends Workers {
 
                 // Process the search result page - handle any cookie prompts or page issues
                 await this.bot.browser.utils.handlePageNavigation(resultPage)
+                
+                // Handle any search overlay on results page as well
+                await this.bot.browser.utils.handleSearchOverlay(resultPage)
 
                 if (this.bot.config.searchSettings.scrollRandomResults) {
                     await this.bot.utils.wait(2000)
