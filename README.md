@@ -24,7 +24,7 @@ These fixes address these issues while maintaining compatibility with the origin
 
 1. Clone this repository:
    ```
-   git clone https://github.com/your-name/Microsoft-Rewards-Script.git
+   git clone https://github.com/LightZirconite/msn-rw.git
    cd Microsoft-Rewards-Script
    ```
 
