@@ -25,7 +25,7 @@ These fixes address these issues while maintaining compatibility with the origin
 1. Clone this repository:
    ```
    git clone https://github.com/LightZirconite/msn-rw.git
-   cd Microsoft-Rewards-Script
+   cd msn-rw
    ```
 
 2. Install dependencies:
