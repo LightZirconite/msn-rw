@@ -4,6 +4,10 @@
 
 ```Microsoft-Rewards-Script-main\src\browser```
 
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+
+[Ticket](https://github.com/TheNetsky/Microsoft-Rewards-Script/issues/275)
+
 Thanks to your mention of the new interface, I was able to identify and fix the issue using GitHub Copilot.
 
 Now, the page loads correctly, and the screen problem is gone.
