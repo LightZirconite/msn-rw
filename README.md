@@ -2,8 +2,6 @@
 
 ### [Download the fix now](https://github.com/LightZirconite/msn-rw/blob/main/Browser.ts)
 
-```Microsoft-Rewards-Script-main\src\browser```
-
 --------------------------------------------------------------------------------------------------------------------------------------------------------
 
 [Ticket](https://github.com/TheNetsky/Microsoft-Rewards-Script/issues/275)
