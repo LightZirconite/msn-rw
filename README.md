@@ -7,7 +7,6 @@ This document details the fixes applied to [TheNetsky's Microsoft Rewards Script
 The original script stopped working correctly due to Microsoft's authentication interface changes, which resulted in:
 1. Blank pages during login
 2. Failure to enter email addresses in desktop mode
-3. Multiple browser windows opening simultaneously
 
 These fixes address these specific issues while maintaining compatibility with the original codebase.
 
