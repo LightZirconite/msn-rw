@@ -1,3 +1,5 @@
+## This deposit is only a correction to the [original](https://github.com/TheNetsky/Microsoft-Rewards-Script) deposit
+
 Thanks to your mention of the new interface, I was able to identify and fix the issue using GitHub Copilot.
 
 Now, the page loads correctly, and the screen problem is gone.
