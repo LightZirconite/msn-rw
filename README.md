@@ -2,6 +2,8 @@
 
 ### [Download the fix now](https://github.com/LightZirconite/msn-rw/blob/main/Browser.ts)
 
+```Microsoft-Rewards-Script-main\src\browser```
+
 Thanks to your mention of the new interface, I was able to identify and fix the issue using GitHub Copilot.
 
 Now, the page loads correctly, and the screen problem is gone.
